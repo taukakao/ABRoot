@@ -182,3 +182,5 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	tags.cncf.io/container-device-interface v0.6.2 // indirect
 )
+
+replace github.com/linux-immutability-tools/EtcBuilder => github.com/taukakao/EtcBuilder v0.0.0-20240413165725-80722ba35c63
