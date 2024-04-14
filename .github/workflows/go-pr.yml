@@ -16,6 +16,11 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Cat file
+      run: |
+          ls -Al .
+          cat testfile
+
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
