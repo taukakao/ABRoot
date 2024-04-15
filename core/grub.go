@@ -125,6 +125,8 @@ func getKernelVersion(bootPath string) string {
 		return ""
 	}
 
+	fmt.Println("kernel files", files)
+
 	var maxVersion string
 	for _, file := range files {
 		version := filepath.Base(file)

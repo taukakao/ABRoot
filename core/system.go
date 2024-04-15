@@ -811,11 +811,14 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation) error {
 		}
 		s.AddToCleanUpQueue("umountInit", 80)
 
+		fmt.Println("kernel path1", filepath.Join(systemNew, "boot"))
 		kernelVersion := getKernelVersion(filepath.Join(systemNew, "boot"))
+		fmt.Println("kernel version", kernelVersion)
 		err = CopyFile(
 			filepath.Join(systemNew, "boot", "vmlinuz-"+kernelVersion),
 			filepath.Join(initMountpoint, partFuture.Label, "vmlinuz-"+kernelVersion),
 		)
+		fmt.Println("kernel err", err)
 		if err != nil {
 			PrintVerboseErr("ABSystem.RunOperation", 7.5, err)
 			return err
