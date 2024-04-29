@@ -630,10 +630,6 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation) error {
 		return err
 	}
 
-	cq.Add(func(args ...interface{}) error {
-		return chroot.Close()
-	}, nil, 10, &goodies.NoErrorHandler{}, false)
-
 	generatedGrubConfigPath := "/boot/grub/grub.cfg"
 
 	err = chroot.ExecuteCmds(
@@ -663,9 +659,7 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation) error {
 		return err
 	}
 
-	cq.Add(func(args ...interface{}) error {
-		return chroot.Close()
-	}, nil, 10, &goodies.NoErrorHandler{}, false)
+	chroot.Close()
 
 	var rootUuid string
 	// If Thin-Provisioning set, mount init partition and move linux and initrd
