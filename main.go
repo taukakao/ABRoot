@@ -77,6 +77,9 @@ func main() {
 	cnf := cmd.NewConfCommand()
 	root.AddCommand(cnf)
 
+	mntSys := cmd.NewMountSysCommand()
+	root.AddCommand(mntSys)
+
 	// run the app
 	err := abroot.Run()
 	if err != nil {
