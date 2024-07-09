@@ -16,6 +16,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"syscall"
 
@@ -152,17 +153,19 @@ func mountVar(varPart core.Partition, dryRun bool) error {
 func mountBindMounts(dryRun bool) error {
 	type bindMount struct {
 		from, to string
+		options  uintptr
 	}
 
 	binds := []bindMount{
-		{"/var/home", "/home"},
-		{"/var/opt", "/opt"},
+		{"/var/home", "/home", 0},
+		{"/var/opt", "/opt", 0},
+		{"/.system/usr", "/.system/usr", syscall.MS_RDONLY},
 	}
 
 	for _, bind := range binds {
 		cmdr.FgDefault.Println("bind-mounting " + bind.from + " to " + bind.to)
 		if !dryRun {
-			err := syscall.Mount(bind.from, bind.to, "", syscall.MS_BIND, "")
+			err := syscall.Mount(bind.from, bind.to, "", syscall.MS_BIND|bind.options, "")
 			if err != nil {
 				return err
 			}
@@ -204,6 +207,7 @@ func adjustFstab(uuid string, dryRun bool) error {
 	cmdr.FgDefault.Println("switching the root in fstab")
 
 	const fstabFile = "/etc/fstab"
+	systemMounts := []string{"/", "/var", "/.system/usr", "/.system/etc"}
 
 	fstabContentsRaw, err := os.ReadFile(fstabFile)
 	if err != nil {
@@ -214,32 +218,40 @@ func adjustFstab(uuid string, dryRun bool) error {
 
 	lines := strings.Split(fstabContents, "\n")
 
-	// remove root if it exists in fstab
-	for line_index, line := range lines {
+	linesNew := make([]string, 0, len(lines))
+
+	// remove system Mounts if they exist in fstab
+	for _, line := range lines {
+
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "#") {
+			linesNew = append(linesNew, line)
 			continue
 		}
 
 		words := strings.Fields(line)
 		if len(words) < 2 {
+			linesNew = append(linesNew, line)
 			continue
 		}
 
-		if words[1] == "/" {
-			cmdr.FgDefault.Println("Deleting line: ", line)
-			lines = append(lines[:line_index], lines[line_index+1:]...)
-			break
+		if !slices.Contains[[]string](systemMounts, words[1]) {
+			linesNew = append(linesNew, line)
+			continue
 		}
+
+		cmdr.FgDefault.Println("Deleting line: ", line)
 	}
 
 	currentRootLine := "UUID=" + uuid + " / btrfs defaults 0 0"
 
 	cmdr.FgDefault.Println("Adding line: ", currentRootLine)
 
-	lines = append([]string{currentRootLine}, lines...)
+	linesNew = append([]string{currentRootLine}, linesNew...)
 
-	newFstabContents := strings.Join(lines, "\n")
+	newFstabContents := strings.Join(linesNew, "\n")
+
+	cmdr.Info.Println(newFstabContents)
 
 	newFstabFile := fstabFile + ".new"
 
