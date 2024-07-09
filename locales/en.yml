@@ -129,6 +129,3 @@ updateInitramfs:
   updateSuccess: "Updated initramfs of future root."
   updateFailed: "Failed to update initramfs of future root.\n"
   dryRunFlag: "perform a dry run of the operation"
-
-mount-sys:
-  dryRunFlag: "perform a dry run of the operation"

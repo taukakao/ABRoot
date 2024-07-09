@@ -17,10 +17,12 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"syscall"
 
 	"github.com/spf13/cobra"
 
 	"github.com/vanilla-os/abroot/core"
+	"github.com/vanilla-os/abroot/settings"
 	"github.com/vanilla-os/orchid/cmdr"
 )
 
@@ -30,6 +32,14 @@ type DiskLayoutError struct {
 
 func (e *DiskLayoutError) Error() string {
 	return fmt.Sprintf("device %s has an unsupported layout", e.Device)
+}
+
+type PartNotFoundError struct {
+	Partition string
+}
+
+func (e *PartNotFoundError) Error() string {
+	return fmt.Sprintf("partition %s could not be found", e.Partition)
 }
 
 func NewMountSysCommand() *cmdr.Command {
@@ -44,8 +54,10 @@ func NewMountSysCommand() *cmdr.Command {
 		cmdr.NewBoolFlag(
 			"dry-run",
 			"d",
-			abroot.Trans("mount-sys.dryRunFlag"),
-			false))
+			"perform a dry run of the operation",
+			false,
+		),
+	)
 
 	cmd.Example = "abroot mount-sys"
 
@@ -64,11 +76,11 @@ func mountSysCmd(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func mountSys(cmd *cobra.Command, args []string) error {
-	// if !core.RootCheck(false) {
-	// 	cmdr.Error.Println(abroot.Trans("status.rootRequired"))
-	// 	return nil
-	// }
+func mountSys(cmd *cobra.Command, _ []string) error {
+	if !core.RootCheck(false) {
+		cmdr.Error.Println("This operation requires root.")
+		return nil
+	}
 
 	dryRun, err := cmd.Flags().GetBool("dry-run")
 	if err != nil {
@@ -83,38 +95,55 @@ func mountSys(cmd *cobra.Command, args []string) error {
 
 	err = mountVar(manager.VarPartition, dryRun)
 	if err != nil {
-		return err
+		cmdr.Error.Println(err)
+		os.Exit(5)
 	}
 
 	err = mountBindMounts(dryRun)
 	if err != nil {
-		return err
+		cmdr.Error.Println(err)
+		os.Exit(6)
 	}
 
+	if present.Label == "" {
+		return &PartNotFoundError{"current root"}
+	}
 	err = mountOverlayMounts(present.Label, dryRun)
 	if err != nil {
-		return err
+		cmdr.Error.Println(err)
+		os.Exit(7)
 	}
 
-	err = adjustFstab(dryRun)
+	if present.Uuid == "" {
+		return &PartNotFoundError{"current root"}
+	}
+	err = adjustFstab(present.Uuid, dryRun)
 	if err != nil {
-		return err
+		cmdr.Error.Println(err)
+		os.Exit(8)
+	}
+
+	if dryRun {
+		cmdr.Info.Println("Dry run complete.")
+	} else {
+		cmdr.Info.Println("The system mounts have been performed successfully.")
 	}
 
 	return nil
 }
 
 func mountVar(varPart core.Partition, dryRun bool) error {
-	if varPart.IsEncrypted() {
-		unlockVar(varPart, "TODO")
+	cmdr.FgDefault.Println("mounting " + varPart.Device + " in /var")
+
+	if varPart.Device == "" {
+		return &PartNotFoundError{settings.Cnf.PartLabelVar}
 	}
 
-	if varPart.IsDevMapper() {
-		dev := varPart.Device
-		cmdr.Info.Println("mount /dev/mapper/" + dev + " /var")
-	} else {
-		dev := varPart.Device
-		cmdr.Info.Println("mount /dev/" + dev + " /var")
+	if !dryRun {
+		err := varPart.Mount("/var")
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -125,10 +154,19 @@ func mountBindMounts(dryRun bool) error {
 		from, to string
 	}
 
-	binds := []bindMount{{"/var/home", "/home"}, {"/var/opt", "/opt"}}
+	binds := []bindMount{
+		{"/var/home", "/home"},
+		{"/var/opt", "/opt"},
+	}
 
 	for _, bind := range binds {
-		cmdr.Info.Println("mount --bind " + bind.from + " " + bind.to)
+		cmdr.FgDefault.Println("bind-mounting " + bind.from + " to " + bind.to)
+		if !dryRun {
+			err := syscall.Mount(bind.from, bind.to, "", syscall.MS_BIND, "")
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil
@@ -141,71 +179,86 @@ func mountOverlayMounts(rootLabel string, dryRun bool) error {
 		upperdir, workdir string
 	}
 
-	overlays := []overlayMount{{"/.system/etc", []string{"/.system/etc"}, "/var/lib/abroot/etc/" + rootLabel, "/var/lib/abroot/etc/" + rootLabel + "-work"}}
+	overlays := []overlayMount{
+		{"/.system/etc", []string{"/.system/etc"}, "/var/lib/abroot/etc/" + rootLabel, "/var/lib/abroot/etc/" + rootLabel + "-work"},
+	}
 
 	for _, overlay := range overlays {
 		lowerCombined := strings.Join(overlay.lowerdirs, ":")
 		options := "lowerdir=" + lowerCombined + ",upperdir=" + overlay.upperdir + ",workdir=" + overlay.workdir
-		cmdr.Info.Println("mount -t overlay overlay -o " + options + " " + overlay.destination)
 
-		// err := syscall.Mount("overlay", overlay.destination, "overlay", 0, options)
+		cmdr.FgDefault.Println("mounting overlay mount " + overlay.destination + " with options " + options)
+
+		if !dryRun {
+			err := syscall.Mount("overlay", overlay.destination, "overlay", 0, options)
+			if err != nil {
+				return err
+			}
+		}
 	}
-	return nil
-}
-
-func adjustFstab(dryRun bool) error {
-	cmdr.Info.Println("switch the root in fstab")
-	return nil
-}
-
-func unlockVar(varPart core.Partition, passphrase string) error {
-	if !varPart.IsEncrypted() {
-		return &DiskLayoutError{varPart.Device}
-	}
-	if !varPart.IsDevMapper() {
-		return &DiskLayoutError{varPart.Device}
-	}
-
-	dev := varPart.Device
-	uuid := varPart.Uuid
-	cmdr.Info.Println("cryptsetup luksOpen /dev/mapper/" + dev + " luks-" + uuid)
 
 	return nil
 }
 
-// func getCurrentlyBootedPartition(a *core.ABRootManager) (string, string, error) {
-// 	bootPart, err := a.GetBoot()
-// 	if err != nil {
-// 		return "", "", err
-// 	}
-// 	uuid := uuid.New().String()
-// 	tmpBootMount := filepath.Join("/tmp", uuid)
-// 	err = os.Mkdir(tmpBootMount, 0o755)
-// 	if err != nil {
-// 		return "", "", err
-// 	}
-// 	err = bootPart.Mount(tmpBootMount)
-// 	if err != nil {
-// 		return "", "", err
-// 	}
-// 	defer bootPart.Unmount()
+func adjustFstab(uuid string, dryRun bool) error {
+	cmdr.FgDefault.Println("switching the root in fstab")
 
-// 	g, err := core.NewGrub(bootPart)
-// 	if err != nil {
-// 		return "", "", err
-// 	}
-// 	isPresent, err := g.IsBootedIntoPresentRoot()
-// 	if err != nil {
-// 		return "", "", err
-// 	}
+	const fstabFile = "/etc/fstab"
 
-// 	presentMark := ""
-// 	futureMark := ""
-// 	if isPresent {
-// 		presentMark = " ✓"
-// 	} else {
-// 		futureMark = " ✓"
-// 	}
+	fstabContentsRaw, err := os.ReadFile(fstabFile)
+	if err != nil {
+		return err
+	}
 
-// 	return presentMark, futureMark, nil
-// }
+	fstabContents := string(fstabContentsRaw)
+
+	lines := strings.Split(fstabContents, "\n")
+
+	// remove root if it exists in fstab
+	for line_index, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		words := strings.Fields(line)
+		if len(words) < 2 {
+			continue
+		}
+
+		if words[1] == "/" {
+			cmdr.FgDefault.Println("Deleting line: ", line)
+			lines = append(lines[:line_index], lines[line_index+1:]...)
+			break
+		}
+	}
+
+	currentRootLine := "UUID=" + uuid + " / btrfs defaults 0 0"
+
+	cmdr.FgDefault.Println("Adding line: ", currentRootLine)
+
+	lines = append([]string{currentRootLine}, lines...)
+
+	newFstabContents := strings.Join(lines, "\n")
+
+	newFstabFile := fstabFile + ".new"
+
+	if !dryRun {
+		cmdr.FgDefault.Println("writing new fstab file")
+		err := os.WriteFile(newFstabFile, []byte(newFstabContents), 0o644)
+		if err != nil {
+			return err
+		}
+		err = core.AtomicSwap(fstabFile, newFstabFile)
+		if err != nil {
+			return err
+		}
+		err = os.Rename(newFstabFile, fstabFile+".old")
+		if err != nil {
+			cmdr.Warning.Println("Old Fstab file will keep .new suffix")
+			// ignore, backup is not neccessary to boot
+		}
+	}
+
+	return nil
+}
