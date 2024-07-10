@@ -251,8 +251,6 @@ func adjustFstab(uuid string, dryRun bool) error {
 
 	newFstabContents := strings.Join(linesNew, "\n")
 
-	cmdr.Info.Println(newFstabContents)
-
 	newFstabFile := fstabFile + ".new"
 
 	if !dryRun {
