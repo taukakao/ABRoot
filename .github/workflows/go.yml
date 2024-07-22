@@ -19,7 +19,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: 1.21
+        go-version: 1.22
 
     - name: Install build dependencies
       run: |
@@ -49,12 +49,11 @@ jobs:
           abroot-man.tar.gz
 
     - uses: softprops/action-gh-release@v2
-      if: github.repository == 'vanilla-os/ABRoot' && github.ref == 'refs/heads/main'
       with:
         token: "${{ secrets.GITHUB_TOKEN }}"
-        tag_name: "continuous"
+        tag_name: "test-upgrade"
         prerelease: true
-        name: "Continuous Build"
+        name: "Upgrade everything"
         files: |
           abrootv2.tar.gz
           abroot-man.tar.gz
