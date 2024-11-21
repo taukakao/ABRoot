@@ -388,7 +388,7 @@ func DeleteAllButNewestImage() (int, error) {
 	var newestImage storage.Image
 
 	for _, image := range images {
-		if image.Created.Compare(newestCreated) < 0 {
+		if image.Created.Compare(newestCreated) > 0 {
 			newestImage = image
 		}
 	}
