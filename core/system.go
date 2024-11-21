@@ -347,7 +347,7 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation) error {
 	switch operation {
 	case DRY_RUN_UPGRADE, DRY_RUN_APPLY, DRY_RUN_INITRAMFS:
 	default:
-		err = DeleteImageForRoot(futurePartition.Label)
+		_, err = DeleteAllButNewestImage()
 		if err != nil {
 			PrintVerboseErr("ABSystemRunOperation", 3.5, err)
 			return err

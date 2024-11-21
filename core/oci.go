@@ -25,6 +25,7 @@ import (
 
 	"github.com/containers/buildah"
 	"github.com/containers/image/v5/types"
+	"github.com/containers/storage"
 	cstypes "github.com/containers/storage/types"
 	humanize "github.com/dustin/go-humanize"
 	"github.com/pterm/pterm"
@@ -120,7 +121,6 @@ func OciExportRootFs(buildImageName string, imageRecipe *ImageRecipe, transDir s
 		return err
 	}
 
-	pulledImage := false
 	// pull image
 	if !strings.HasPrefix(imageRecipe.From, "localhost/") {
 		err = pullImageWithProgressbar(pt, buildImageName, imageRecipe)
@@ -128,7 +128,6 @@ func OciExportRootFs(buildImageName string, imageRecipe *ImageRecipe, transDir s
 			PrintVerboseErr("OciExportRootFs", 6.1, err)
 			return err
 		}
-		pulledImage = true
 	}
 
 	// build image
@@ -136,15 +135,6 @@ func OciExportRootFs(buildImageName string, imageRecipe *ImageRecipe, transDir s
 	if err != nil {
 		PrintVerboseErr("OciExportRootFs", 7, err)
 		return err
-	}
-
-	if pulledImage {
-		// This is safe because BuildContainerFile layers on top of the base image
-		// So this won't delete the actual layers, only the image reference
-		_, err = pt.Store.DeleteImage(imageRecipe.From, true)
-		if err != nil {
-			PrintVerboseWarn("OciExportRootFs", 7.5, "could not delete downloaded image", err)
-		}
 	}
 
 	// mount image
@@ -275,6 +265,24 @@ func pullImageWithProgressbar(pt *prometheus.Prometheus, name string, image *Ima
 	}
 }
 
+func RetrieveAllImages() ([]storage.Image, error) {
+	PrintVerboseInfo("RetrieveAllImages", "running...")
+
+	pt, err := NewPrometheus()
+	if err != nil {
+		PrintVerboseErr("RetrieveAllImages", 0, err)
+		return []storage.Image{}, err
+	}
+
+	images, err := pt.Store.Images()
+	if err != nil {
+		PrintVerboseErr("RetrieveAllImages", 1, err)
+		return []storage.Image{}, err
+	}
+
+	return images, nil
+}
+
 // FindImageWithLabel returns the name of the first image containinig the provided key-value pair
 // or an empty string if none was found
 // FindImageWithLabel returns the name of the first image containing the
@@ -326,6 +334,28 @@ func RetrieveImageForRoot(root string) (string, error) {
 	return image, nil
 }
 
+// DeleteImage deletes the image specified in id
+//
+// If the image is deleted successfully, a list of all deleted layers is returned
+func DeleteImage(id string) ([]string, error) {
+	PrintVerboseInfo("DeleteImage", "running...")
+
+	pt, err := NewPrometheus()
+	if err != nil {
+		PrintVerboseErr("DeleteImage", 1, err)
+		return []string{}, err
+	}
+
+	layers, err := pt.Store.DeleteImage(id, true)
+	if err != nil {
+		PrintVerboseErr("DeleteImage", 2, err)
+		return []string{}, err
+	}
+
+	PrintVerboseInfo("DeleteImage", "deleted ", layers)
+	return layers, nil
+}
+
 // DeleteImageForRoot deletes the image created for the provided root
 func DeleteImageForRoot(root string) error {
 	image, err := RetrieveImageForRoot(root)
@@ -334,17 +364,48 @@ func DeleteImageForRoot(root string) error {
 		return err
 	}
 
-	pt, err := NewPrometheus()
-	if err != nil {
-		PrintVerboseErr("DeleteImageForRoot", 1, err)
-		return err
-	}
+	_, err = DeleteImage(image)
 
-	_, err = pt.Store.DeleteImage(image, true)
 	if err != nil && err != cstypes.ErrNotAnImage {
 		PrintVerboseErr("DeleteImageForRoot", 2, err)
 		return err
 	}
 
 	return nil
+}
+
+// DeleteAllButNewestImage looks for the newest image in storage and deletes all other images
+func DeleteAllButNewestImage() (int, error) {
+	PrintVerboseInfo("DeleteAllButNewestImage", "running...")
+
+	images, err := RetrieveAllImages()
+	if err != nil {
+		PrintVerboseErr("DeleteAllButNewestImage", 1, err)
+		return 0, err
+	}
+
+	var newestCreated time.Time
+	var newestImage storage.Image
+
+	for _, image := range images {
+		if image.Created.Compare(newestCreated) < 0 {
+			newestImage = image
+		}
+	}
+
+	deletedCount := 0
+
+	for _, image := range images {
+		if image.ID != newestImage.ID {
+			_, err := DeleteImage(image.ID)
+			if err != nil {
+				PrintVerboseErr("DeleteAllButNewestImage", 2, " could not delete image ", image.ID, " ", err)
+				return 0, err
+			}
+			deletedCount++
+		}
+	}
+
+	PrintVerboseInfo("DeleteAllButNewestImage", "deleted ", deletedCount, " images")
+	return deletedCount, nil
 }
