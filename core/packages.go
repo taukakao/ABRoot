@@ -467,37 +467,6 @@ func (p *PackageManager) writePackages(file string, pkgs []string) error {
 	return nil
 }
 
-func (p *PackageManager) processApplyPackages() (string, string) {
-	PrintVerboseInfo("PackageManager.processApplyPackages", "running...")
-
-	unstaged, err := p.GetUnstagedPackages()
-	if err != nil {
-		PrintVerboseErr("PackageManager.processApplyPackages", 0, err)
-	}
-
-	var addPkgs, removePkgs []string
-	for _, pkg := range unstaged {
-		switch pkg.Status {
-		case ADD:
-			addPkgs = append(addPkgs, pkg.Name)
-		case REMOVE:
-			removePkgs = append(removePkgs, pkg.Name)
-		}
-	}
-
-	finalAddPkgs := ""
-	if len(addPkgs) > 0 {
-		finalAddPkgs = fmt.Sprintf("%s %s", settings.Cnf.IPkgMngAdd, strings.Join(addPkgs, " "))
-	}
-
-	finalRemovePkgs := ""
-	if len(removePkgs) > 0 {
-		finalRemovePkgs = fmt.Sprintf("%s %s", settings.Cnf.IPkgMngRm, strings.Join(removePkgs, " "))
-	}
-
-	return finalAddPkgs, finalRemovePkgs
-}
-
 func (p *PackageManager) processUpgradePackages() (string, string) {
 	addPkgs, err := p.GetAddPackagesString(" ")
 	if err != nil {
@@ -532,12 +501,7 @@ func (p *PackageManager) processUpgradePackages() (string, string) {
 func (p *PackageManager) GetFinalCmd(operation ABSystemOperation) string {
 	PrintVerboseInfo("PackageManager.GetFinalCmd", "running...")
 
-	var finalAddPkgs, finalRemovePkgs string
-	if operation == APPLY {
-		finalAddPkgs, finalRemovePkgs = p.processApplyPackages()
-	} else {
-		finalAddPkgs, finalRemovePkgs = p.processUpgradePackages()
-	}
+	finalAddPkgs, finalRemovePkgs := p.processUpgradePackages()
 
 	cmd := ""
 	if finalAddPkgs != "" && finalRemovePkgs != "" {

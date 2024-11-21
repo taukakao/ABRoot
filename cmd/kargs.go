@@ -63,7 +63,7 @@ func kargs(cmd *cobra.Command, args []string) error {
 			cmdr.Error.Println(err)
 			return err
 		}
-		err = aBsys.RunOperation(core.APPLY)
+		err = aBsys.RunOperation(core.INITRAMFS)
 		if err != nil {
 			cmdr.Error.Println(abroot.Trans("pkg.applyFailed"))
 			return err

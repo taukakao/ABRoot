@@ -167,7 +167,7 @@ func (s *ABSystem) CreateRootSymlinks(systemNewPath string) error {
 //	FORCE_UPGRADE:
 //		Forces the upgrade operation, even if no new image is available,
 //	APPLY:
-//		Applies package changes, but doesn't update the system.
+//		Applies package changes by running a regular upgrade.
 //	INITRAMFS:
 //		Updates the initramfs for the future root, but doesn't update the system.
 func (s *ABSystem) RunOperation(operation ABSystemOperation) error {
@@ -222,7 +222,7 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation) error {
 	}
 
 	var imageDigest string
-	if operation != APPLY && operation != INITRAMFS {
+	if operation != INITRAMFS {
 		var res bool
 		imageDigest, res = s.CheckUpdate()
 		if !res {
@@ -321,7 +321,7 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation) error {
 
 	var imageName string
 	switch operation {
-	case APPLY, DRY_RUN_APPLY, INITRAMFS, DRY_RUN_INITRAMFS:
+	case INITRAMFS, DRY_RUN_INITRAMFS:
 		presentPartition, err := s.RootM.GetPresent()
 		if err != nil {
 			PrintVerboseErr("ABSystemRunOperation", 3.3, err)
