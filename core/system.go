@@ -222,16 +222,16 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation) error {
 	}
 
 	var imageDigest string
-	if operation != INITRAMFS {
+	if operation != INITRAMFS && operation != DRY_RUN_INITRAMFS {
 		var res bool
 		imageDigest, res = s.CheckUpdate()
 		if !res {
-			if operation != FORCE_UPGRADE {
+			if operation != FORCE_UPGRADE && operation != APPLY && operation != DRY_RUN_APPLY {
 				PrintVerboseErr("ABSystemRunOperation", 1.1, err)
 				return ErrNoUpdate
 			}
 			imageDigest = s.CurImage.Digest
-			PrintVerboseWarn("ABSystemRunOperation", 1.2, "No update available but --force is set. Proceeding...")
+			PrintVerboseWarn("ABSystemRunOperation", 1.2, "No update available. Proceeding anyway due to --force flag or pkg apply action...")
 		}
 	} else {
 		imageDigest = s.CurImage.Digest
