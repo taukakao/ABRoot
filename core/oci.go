@@ -352,7 +352,7 @@ func DeleteImage(id string) ([]string, error) {
 		return []string{}, err
 	}
 
-	PrintVerboseInfo("DeleteImage", "deleted ", layers)
+	PrintVerboseInfo("DeleteImage", "deleted ", len(layers), " layers")
 	return layers, nil
 }
 
