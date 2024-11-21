@@ -62,15 +62,25 @@ func padString(str string, size int) string {
 	}
 }
 
-// OciExportRootFs generates a rootfs from an image recipe file
-func OciExportRootFs(buildImageName string, imageRecipe *ImageRecipe, transDir string, dest string) error {
-	PrintVerboseInfo("OciExportRootFs", "running...")
-
+func NewPrometheus() (*prometheus.Prometheus, error) {
 	pt, err := prometheus.NewPrometheus(
 		"/var/lib/abroot/storage",
 		"overlay",
 		settings.Cnf.MaxParallelDownloads,
 	)
+	if err != nil {
+		PrintVerboseErr("OciExportRootFs", 0, err)
+		return nil, err
+	}
+
+	return pt, nil
+}
+
+// OciExportRootFs generates a rootfs from an image recipe file
+func OciExportRootFs(buildImageName string, imageRecipe *ImageRecipe, transDir string, dest string) error {
+	PrintVerboseInfo("OciExportRootFs", "running...")
+
+	pt, err := NewPrometheus()
 	if err != nil {
 		PrintVerboseErr("OciExportRootFs", 0, err)
 		return err
@@ -272,11 +282,7 @@ func pullImageWithProgressbar(pt *prometheus.Prometheus, name string, image *Ima
 func FindImageWithLabel(key, value string) (string, error) {
 	PrintVerboseInfo("FindImageWithLabel", "running...")
 
-	pt, err := prometheus.NewPrometheus(
-		"/var/lib/abroot/storage",
-		"overlay",
-		settings.Cnf.MaxParallelDownloads,
-	)
+	pt, err := NewPrometheus()
 	if err != nil {
 		PrintVerboseErr("FindImageWithLabel", 0, err)
 		return "", err
@@ -328,11 +334,7 @@ func DeleteImageForRoot(root string) error {
 		return err
 	}
 
-	pt, err := prometheus.NewPrometheus(
-		"/var/lib/abroot/storage",
-		"overlay",
-		settings.Cnf.MaxParallelDownloads,
-	)
+	pt, err := NewPrometheus()
 	if err != nil {
 		PrintVerboseErr("DeleteImageForRoot", 1, err)
 		return err
