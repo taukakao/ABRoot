@@ -19,6 +19,7 @@ import (
 	"io/fs"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"syscall"
 )
 
@@ -138,26 +139,20 @@ func getDirSize(path string) (int64, error) {
 	inodes := map[uint64]bool{}
 	var totalSize int64 = 0
 
-	dfs := os.DirFS(path)
-	err = fs.WalkDir(dfs, ".", func(path string, d fs.DirEntry, err error) error {
+	err = filepath.Walk(path, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 
-		if !d.IsDir() {
-			fileinfo, err := d.Info()
-			if err != nil {
-				return err
-			}
-
-			fileinfoSys := fileinfo.Sys().(*syscall.Stat_t)
+		if !info.IsDir() {
+			fileinfoSys := info.Sys().(*syscall.Stat_t)
 			if fileinfoSys.Nlink > 1 {
 				if _, ok := inodes[fileinfoSys.Ino]; !ok {
-					totalSize += fileinfo.Size()
+					totalSize += info.Size()
 					inodes[fileinfoSys.Ino] = true
 				}
 			} else {
-				totalSize += fileinfo.Size()
+				totalSize += info.Size()
 				inodes[fileinfoSys.Ino] = true
 			}
 		}
