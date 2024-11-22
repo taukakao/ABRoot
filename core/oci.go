@@ -121,6 +121,7 @@ func OciExportRootFs(buildImageName string, imageRecipe *ImageRecipe, transDir s
 		return err
 	}
 
+	pulledImage := false
 	// pull image
 	if !strings.HasPrefix(imageRecipe.From, "localhost/") {
 		err = pullImageWithProgressbar(pt, buildImageName, imageRecipe)
@@ -128,6 +129,7 @@ func OciExportRootFs(buildImageName string, imageRecipe *ImageRecipe, transDir s
 			PrintVerboseErr("OciExportRootFs", 6.1, err)
 			return err
 		}
+		pulledImage = true
 	}
 
 	// build image
@@ -135,6 +137,15 @@ func OciExportRootFs(buildImageName string, imageRecipe *ImageRecipe, transDir s
 	if err != nil {
 		PrintVerboseErr("OciExportRootFs", 7, err)
 		return err
+	}
+
+	if pulledImage {
+		// This is safe because BuildContainerFile layers on top of the base image
+		// So this won't delete the actual layers, only the image reference
+		_, err = pt.Store.DeleteImage(imageRecipe.From, true)
+		if err != nil {
+			PrintVerboseWarn("OciExportRootFs", 7.5, "could not delete downloaded image", err)
+		}
 	}
 
 	// mount image
