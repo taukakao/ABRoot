@@ -343,7 +343,7 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation) error {
 		labels["ABRoot.BaseImageDigest"] = imageDigest
 	}
 
-	// Stage 3.1: Delete old image
+	// Stage 3.1: Delete old images
 	switch operation {
 	case DRY_RUN_UPGRADE, DRY_RUN_APPLY, DRY_RUN_INITRAMFS:
 	default:
@@ -410,6 +410,18 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation) error {
 	if err != nil {
 		PrintVerboseErr("ABSystem.RunOperation", 4.2, err)
 		return err
+	}
+
+	// Stage 4.1: Delete current root image
+	// The image for the currrent root is not needed anymore and can be deleted
+	switch operation {
+	case DRY_RUN_UPGRADE, DRY_RUN_APPLY, DRY_RUN_INITRAMFS:
+	default:
+		_, err = DeleteAllButNewestImage()
+		if err != nil {
+			PrintVerboseErr("ABSystemRunOperation", 3.5, err)
+			return err
+		}
 	}
 
 	cq.Add(func(args ...interface{}) error {
