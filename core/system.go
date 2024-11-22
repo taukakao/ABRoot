@@ -25,6 +25,7 @@ import (
 	"github.com/google/uuid"
 	EtcBuilder "github.com/linux-immutability-tools/EtcBuilder/cmd"
 	"github.com/vanilla-os/abroot/settings"
+	"github.com/vanilla-os/orchid/cmdr"
 	"github.com/vanilla-os/sdk/pkg/v1/goodies"
 )
 
@@ -176,9 +177,11 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation) error {
 	cq := goodies.NewCleanupQueue()
 	defer cq.Run()
 
+	stageCount := 0
 	// Stage 0: Check if upgrade is possible
 	// -------------------------------------
 	PrintVerboseSimple("[Stage 0] -------- ABSystemRunOperation")
+	cmdr.Info.Println("Stage ", stageCount)
 
 	if s.UpgradeLockExists() {
 		if isAbrootRunning() {
@@ -214,6 +217,8 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation) error {
 	// Stage 1: Check if there is an update available
 	// ------------------------------------------------
 	PrintVerboseSimple("[Stage 1] -------- ABSystemRunOperation")
+	stageCount++
+	cmdr.Info.Println("Stage ", stageCount)
 
 	if s.UserLockRequested() {
 		err := errors.New("upgrade locked per user request")
@@ -245,6 +250,8 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation) error {
 	// 			the IntegrityCheck on the future root.
 	// ------------------------------------------------
 	PrintVerboseSimple("[Stage 2] -------- ABSystemRunOperation")
+	stageCount++
+	cmdr.Info.Println("Stage ", stageCount)
 
 	if s.UserLockRequested() {
 		err := errors.New("upgrade locked per user request")
@@ -289,6 +296,8 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation) error {
 	// Stage 3: Make a imageRecipe with user packages
 	// ------------------------------------------------
 	PrintVerboseSimple("[Stage 3] -------- ABSystemRunOperation")
+	stageCount++
+	cmdr.Info.Println("Stage ", stageCount)
 
 	if s.UserLockRequested() {
 		err := errors.New("upgrade locked per user request")
@@ -364,6 +373,8 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation) error {
 	// Stage 4: Extract the rootfs
 	// ------------------------------------------------
 	PrintVerboseSimple("[Stage 4] -------- ABSystemRunOperation")
+	stageCount++
+	cmdr.Info.Println("Stage ", stageCount)
 
 	if s.UserLockRequested() {
 		err := errors.New("upgrade locked per user request")
@@ -431,6 +442,8 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation) error {
 	// Stage 5: Write abimage.abr.new and config to future/
 	// ------------------------------------------------
 	PrintVerboseSimple("[Stage 5] -------- ABSystemRunOperation")
+	stageCount++
+	cmdr.Info.Println("Stage ", stageCount)
 
 	if s.UserLockRequested() {
 		err := errors.New("upgrade locked per user request")
@@ -496,6 +509,8 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation) error {
 	// Stage 6: Update the bootloader
 	// ------------------------------------------------
 	PrintVerboseSimple("[Stage 6] -------- ABSystemRunOperation")
+	stageCount++
+	cmdr.Info.Println("Stage ", stageCount)
 
 	partPresent, err := s.RootM.GetPresent()
 	if err != nil {
@@ -611,6 +626,8 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation) error {
 	// Stage 7: Sync /etc
 	// ------------------------------------------------
 	PrintVerboseSimple("[Stage 7] -------- ABSystemRunOperation")
+	stageCount++
+	cmdr.Info.Println("Stage ", stageCount)
 
 	oldEtc := "/.system/sysconf" // The current etc WITHOUT anything overlayed
 	presentEtc, err := s.RootM.GetPresent()
@@ -640,6 +657,8 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation) error {
 	// Stage 8: Mount boot partition
 	// ------------------------------------------------
 	PrintVerboseSimple("[Stage 8] -------- ABSystemRunOperation")
+	stageCount++
+	cmdr.Info.Println("Stage ", stageCount)
 
 	uuid := uuid.New().String()
 	tmpBootMount := filepath.Join("/tmp", uuid)
@@ -662,6 +681,8 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation) error {
 	// Stage 9: Atomic swap the rootfs and abimage.abr
 	// ------------------------------------------------
 	PrintVerboseSimple("[Stage 9] -------- ABSystemRunOperation")
+	stageCount++
+	cmdr.Info.Println("Stage ", stageCount)
 
 	err = AtomicSwap(systemOld, systemNew)
 	if err != nil {
@@ -696,6 +717,8 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation) error {
 	// Stage 10: Atomic swap the bootloader
 	// ------------------------------------------------
 	PrintVerboseSimple("[Stage 10] -------- ABSystemRunOperation")
+	stageCount++
+	cmdr.Info.Println("Stage ", stageCount)
 
 	grub, err := NewGrub(partBoot)
 	if err != nil {
@@ -754,6 +777,9 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation) error {
 	// from the init partition since it is too small to hold multiple kernels.
 	// This step runs as the last one to ensure the whole transaction is
 	// successful before removing the old kernels.
+	stageCount++
+	cmdr.Info.Println("Stage ", stageCount)
+
 	if settings.Cnf.ThinProvisioning {
 		switch operation {
 		case DRY_RUN_UPGRADE, DRY_RUN_APPLY, DRY_RUN_INITRAMFS:
