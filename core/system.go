@@ -17,7 +17,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -285,8 +284,7 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation, freeSpace bool) err
 		return err
 	}
 
-	systemNew := filepath.Join(partFuture.Partition.MountPoint, "new")
-	os.RemoveAll(systemNew) // errors are safe to ignore
+	systemNew := filepath.Join(partFuture.Partition.MountPoint)
 
 	cq.Add(func(args ...interface{}) error {
 		return partFuture.Partition.Unmount()
@@ -376,14 +374,6 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation, freeSpace bool) err
 			PrintVerboseErr("ABSystem.RunOperation", 4, err)
 			return err
 		}
-	} else {
-		PrintVerboseInfo("ABSystemRunOperation", "Creating a reflink clone of the old system to copy into")
-		err = exec.Command("cp", "--reflink", "-a", partFuture.Partition.MountPoint, systemNew).Run()
-		if err != nil {
-			PrintVerboseWarn("ABSystem.RunOperation", 4.1, "reflink copy of system failed, falling back to slow copy because:", err)
-			// can be safely ignored
-			// file system doesn't support CoW
-		}
 	}
 
 	abrootTrans := filepath.Join(partFuture.Partition.MountPoint, "abroot-trans")
@@ -468,11 +458,6 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation, freeSpace bool) err
 		return err
 	}
 
-	// from this point on, it is not possible to stop the upgrade
-	// so we create the finalizing file. Note that interrupting the upgrade
-	// from this point on will not leave the system in an inconsistent
-	// state, but it could leave the future partition in a dirty state
-	// preventing it from booting.
 	err = s.createFinalizingFile()
 	if err != nil {
 		PrintVerboseErr("ABSystem.RunOperation", 5.3, err)
@@ -658,34 +643,7 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation, freeSpace bool) err
 	// ------------------------------------------------
 	PrintVerboseSimple("[Stage 9] -------- ABSystemRunOperation")
 
-	err = ClearDirectory(partFuture.Partition.MountPoint, []string{"new"})
-	if err != nil {
-		PrintVerboseErr("ABSystem.RunOperation", 10.1, err)
-		return err
-	}
-
-	files, err := os.ReadDir(systemNew)
-	if err != nil {
-		PrintVerboseErr("ABSystem.RunOperation", 10.2, err)
-		return err
-	}
-
-	// Move everything from /part-future/new to /part-future
-	for _, file := range files {
-		srcPath := filepath.Join(systemNew, file.Name())
-		dstPath := filepath.Join(partFuture.Partition.MountPoint, file.Name())
-		err = os.Rename(srcPath, dstPath)
-		if err != nil {
-			PrintVerboseErr("ABSystem.RunOperation", 10.3, err)
-			return err
-		}
-	}
-
-	err = os.RemoveAll(systemNew)
-	if err != nil {
-		PrintVerboseErr("ABSystem.RunOperation", 10.4, err)
-		return err
-	}
+	// legacy step that has been removed
 
 	// Stage 10: Atomic swap the bootloader
 	// ------------------------------------------------
