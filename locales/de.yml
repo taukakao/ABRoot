@@ -161,3 +161,16 @@ rebase:
   removePackagesLong: "The new image may use a different software repository, making
     some installed packages inaccessible. If this is the case, the next upgrade will
     fail.\nWould you like to remove your added packages to resolve this issue?"
+
+operation:
+  stage1: "[Stufe 1] Auf Updates prüfen"
+  stage2: "[Stufe 2] Partitionen sammeln"
+  stage3: "[Stufe 3] Hinzugefügte Pakete vorbereiten"
+  stage4: "[Stufe 4] Das Systemabbild herunterladen"
+  stage5: "[Stufe 5] Alte Systemabbilder löschen"
+  stage6: "[Stufe 6] Fehler im neuen System beheben"
+  stage7: "[Stufe 7] Konfigurationsdateien schreiben"
+  stage8: "[Stufe 8] Dateien für den Bootprozess vorbereiten"
+  stage9: "[Stufe 9] Den /etc Ordner synchronisieren"
+  stage10: "[Stufe 10] Den zukünftige Root als Standard setzen"
+  success: "Zukünftiger Root wurde erstellt!"

@@ -25,6 +25,7 @@ import (
 	EtcBuilder "github.com/linux-immutability-tools/EtcBuilder/cmd"
 	digest "github.com/opencontainers/go-digest"
 	"github.com/vanilla-os/abroot/settings"
+	"github.com/vanilla-os/orchid/cmdr"
 	"github.com/vanilla-os/sdk/pkg/v1/goodies"
 )
 
@@ -86,6 +87,8 @@ var (
 	ErrUserStopped     error = errors.New("operation stopped per user request")
 	ErrOperationLocked error = errors.New("another operation is currently running")
 )
+
+var abroot *cmdr.App
 
 // NewABSystem initializes a new ABSystem, which contains all the functions
 // to perform system operations such as upgrades, package changes and rollback.
@@ -211,6 +214,7 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation, deleteBeforeCopy bo
 	// Stage 1: Check if there is an update available
 	// ------------------------------------------------
 	PrintVerboseSimple("[Stage 1] -------- ABSystemRunOperation")
+	cmdr.Info.Println(abroot.Trans("operation.stage1"))
 
 	if UserStopRequested() {
 		err = ErrUserStopped
@@ -240,6 +244,14 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation, deleteBeforeCopy bo
 		imageDigest = s.CurImage.Digest
 	}
 
+	if !dryRun {
+		err = DeleteAllButLatestImage()
+		if err != nil {
+			PrintVerboseErr("ABSystem.RunOperation", 3.1, err)
+			return err
+		}
+	}
+
 	// Stage 2: Get the present root, future root and boot partitions,
 	// 			mount future to /part-future and clean up
 	// 			old /part-future/new directory (it is
@@ -247,6 +259,7 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation, deleteBeforeCopy bo
 	// 			before the clean up was done).
 	// ------------------------------------------------
 	PrintVerboseSimple("[Stage 2] -------- ABSystemRunOperation")
+	cmdr.Info.Println(abroot.Trans("operation.stage2"))
 
 	if UserStopRequested() {
 		err = ErrUserStopped
@@ -289,20 +302,12 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation, deleteBeforeCopy bo
 	// Stage 3: Make a imageRecipe with user packages
 	// ------------------------------------------------
 	PrintVerboseSimple("[Stage 3] -------- ABSystemRunOperation")
+	cmdr.Info.Println(abroot.Trans("operation.stage3"))
 
 	if UserStopRequested() {
 		err = ErrUserStopped
 		PrintVerboseErr("ABSystem.RunOperation", 2, err)
 		return err
-	}
-
-	// Stage 3.1: Delete old images
-	if !dryRun {
-		err = DeleteAllButLatestImage()
-		if err != nil {
-			PrintVerboseErr("ABSystem.RunOperation", 3.1, err)
-			return err
-		}
 	}
 
 	labels := map[string]string{
@@ -354,6 +359,7 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation, deleteBeforeCopy bo
 	// Stage 4: Extract the rootfs
 	// ------------------------------------------------
 	PrintVerboseSimple("[Stage 4] -------- ABSystemRunOperation")
+	cmdr.Info.Println(abroot.Trans("operation.stage4"))
 
 	if UserStopRequested() {
 		err = ErrUserStopped
@@ -386,7 +392,11 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation, deleteBeforeCopy bo
 		}
 	}
 
-	// Stage 4.1: Delete old images
+	// Stage 5: Delete old images
+	// ------------------------------------------------
+	PrintVerboseSimple("[Stage 5] -------- ABSystemRunOperation")
+	cmdr.Info.Println(abroot.Trans("operation.stage5"))
+
 	if !dryRun {
 		err = DeleteAllButLatestImage()
 		if err != nil {
@@ -395,7 +405,11 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation, deleteBeforeCopy bo
 		}
 	}
 
-	// Stage 4.2: Repair root integrity
+	// Stage 6: Repair root integrity
+	// ------------------------------------------------
+	PrintVerboseSimple("[Stage 6] -------- ABSystemRunOperation")
+	cmdr.Info.Println(abroot.Trans("operation.stage6"))
+
 	if !dryRun {
 		err = RepairRootIntegrity(futureRoot)
 		if err != nil {
@@ -404,9 +418,10 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation, deleteBeforeCopy bo
 		}
 	}
 
-	// Stage 5: Write new abimage.abr and config to future/
+	// Stage 7: Write new abimage.abr and config to future/
 	// ------------------------------------------------
-	PrintVerboseSimple("[Stage 5] -------- ABSystemRunOperation")
+	PrintVerboseSimple("[Stage 7] -------- ABSystemRunOperation")
+	cmdr.Info.Println(abroot.Trans("operation.stage7"))
 
 	if UserStopRequested() {
 		err = ErrUserStopped
@@ -468,9 +483,10 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation, deleteBeforeCopy bo
 		return err
 	}
 
-	// Stage 6: Update the bootloader
+	// Stage 8: Update the bootloader
 	// ------------------------------------------------
-	PrintVerboseSimple("[Stage 6] -------- ABSystemRunOperation")
+	PrintVerboseSimple("[Stage 8] -------- ABSystemRunOperation")
+	cmdr.Info.Println(abroot.Trans("operation.stage8"))
 
 	chroot, err := NewChroot(
 		futureRoot,
@@ -604,9 +620,10 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation, deleteBeforeCopy bo
 		}
 	}
 
-	// Stage 7: Sync /etc
+	// Stage 9: Sync /etc
 	// ------------------------------------------------
-	PrintVerboseSimple("[Stage 7] -------- ABSystemRunOperation")
+	PrintVerboseSimple("[Stage 9] -------- ABSystemRunOperation")
+	cmdr.Info.Println(abroot.Trans("operation.stage9"))
 
 	oldEtc := "/sysconf" // The current etc WITHOUT anything overlayed
 	oldUpperEtc := fmt.Sprintf("/var/lib/abroot/etc/%s", partPresent.Label)
@@ -625,9 +642,10 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation, deleteBeforeCopy bo
 		}
 	}
 
-	// Stage 8: Mount boot partition
+	// Stage 10: Swap boot partitions
 	// ------------------------------------------------
-	PrintVerboseSimple("[Stage 8] -------- ABSystemRunOperation")
+	PrintVerboseSimple("[Stage 10] -------- ABSystemRunOperation")
+	cmdr.Info.Println(abroot.Trans("operation.stage10"))
 
 	tmpBootMount := "/run/abroot/tmp-boot-mount-1/"
 	err = os.MkdirAll(tmpBootMount, 0o755)
@@ -645,10 +663,6 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation, deleteBeforeCopy bo
 	cq.Add(func(args ...interface{}) error {
 		return partBoot.Unmount()
 	}, nil, 100, &goodies.NoErrorHandler{}, false)
-
-	// Stage 9: Atomic swap the bootloader
-	// ------------------------------------------------
-	PrintVerboseSimple("[Stage 9] -------- ABSystemRunOperation")
 
 	grub, err := NewGrub(partBoot)
 	if err != nil {
@@ -710,6 +724,7 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation, deleteBeforeCopy bo
 	}
 
 	PrintVerboseInfo("ABSystem.RunOperation", "upgrade completed")
+	cmdr.Info.Println(abroot.Trans("operation.success"))
 	return nil
 }
 

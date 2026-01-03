@@ -149,3 +149,16 @@ rebase:
   successUpdate: "Rebase completed successfully. The system will update in a moment." 
   flagError: "'--keep-packages' and '--remove-packages' are conflicting flags and cannot be used together."
   rebaseOnly: "Do not update the system after chaning the configured image"
+
+operation:
+  stage1: "[Stage 1] Check for an upgrade"
+  stage2: "[Stage 2] Collect partitions"
+  stage3: "[Stage 3] Prepare layering the packages"
+  stage4: "[Stage 4] Download and copy the image"
+  stage5: "[Stage 5] Delete old images"
+  stage6: "[Stage 6] Make sure the future system is intact"
+  stage7: "[Stage 7] Write configuration files"
+  stage8: "[Stage 8] Prepare files for booting the system"
+  stage9: "[Stage 9] Sync the /etc directory"
+  stage10: "[Stage 10] Makes the future root the default one"
+  success: "Future root successfully created!"
