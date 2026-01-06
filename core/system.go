@@ -287,6 +287,7 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation, deleteBeforeCopy bo
 	}, nil, 90, &goodies.NoErrorHandler{}, false)
 
 	// Stage 3: Make a imageRecipe with user packages
+	//         	then download the image
 	// ------------------------------------------------
 	PrintVerboseSimple("[Stage 3] -------- ABSystemRunOperation")
 
@@ -350,6 +351,13 @@ func (s *ABSystem) RunOperation(operation ABSystemOperation, deleteBeforeCopy bo
 		args,
 		content,
 	)
+
+	// Stage 3.2: Download image
+	if !dryRun {
+		err = OciPullImage(imageName)
+		PrintVerboseErr("ABSystem.RunOperation", 3.5, err)
+		return err
+	}
 
 	// Stage 4: Extract the rootfs
 	// ------------------------------------------------
